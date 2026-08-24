@@ -6,7 +6,7 @@ from aiogram.types import Message, CallbackQuery
 from config import OWNER_ID
 import db
 from states import CompleteOrder
-from keyboards import complete_order_kb, payment_method_kb
+from keyboards import complete_order_kb, payment_method_kb, take_order_kb
 
 router = Router()
 router.message.filter(F.from_user.id != OWNER_ID)
@@ -63,6 +63,45 @@ async def take_order(call: CallbackQuery):
         OWNER_ID,
         f"👷 {full_name} взял в работу заявку №{order_id} ({order['address']})",
     )
+
+
+@router.callback_query(F.data.startswith("cancel_"))
+async def cancel_order(call: CallbackQuery):
+    order_id = int(call.data.split("_", 1)[1])
+    order = await db.get_order(order_id)
+    if not order or order["assigned_to"] != call.from_user.id:
+        await call.answer("Это не ваша заявка.", show_alert=True)
+        return
+
+    ok = await db.cancel_order(order_id, call.from_user.id)
+    if not ok:
+        await call.answer("Не удалось отменить заявку.", show_alert=True)
+        return
+
+    await call.message.edit_text(
+        f"❌ Вы отменили заявку №{order_id}\n"
+        f"📍 {order['address']}\n"
+        f"{order['problem']}"
+    )
+    await call.answer("Заявка отменена")
+
+    await call.bot.send_message(
+        OWNER_ID,
+        f"⚠️ {order['assigned_name']} отменил(а) заявку №{order_id} ({order['address']}).\n"
+        "Заявка снова отправлена сотрудникам.",
+    )
+
+    employees = await db.get_employees()
+    text = (
+        f"🆕 Заявка №{order_id} (повторно)\n\n"
+        f"📍 Адрес: {order['address']}\n"
+        f"🔧 Проблема: {order['problem']}"
+    )
+    for user_id, _ in employees:
+        try:
+            await call.bot.send_message(user_id, text, reply_markup=take_order_kb(order_id))
+        except Exception:
+            pass
 
 
 @router.callback_query(F.data.startswith("complete_"))

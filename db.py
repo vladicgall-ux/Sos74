@@ -94,6 +94,24 @@ async def take_order(order_id: int, user_id: int, full_name: str) -> bool:
         return True
 
 
+async def cancel_order(order_id: int, user_id: int) -> bool:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            "SELECT status, assigned_to FROM orders WHERE id = ?", (order_id,)
+        )
+        row = await cursor.fetchone()
+        if not row or row[0] != "in_progress" or row[1] != user_id:
+            return False
+        await db.execute(
+            """UPDATE orders
+               SET status='new', assigned_to=NULL, assigned_name=NULL, taken_at=NULL
+               WHERE id=?""",
+            (order_id,),
+        )
+        await db.commit()
+        return True
+
+
 async def complete_order(
     order_id: int,
     cost: float,
