@@ -8,10 +8,8 @@ class NewOrder(StatesGroup):
 
 class CompleteOrder(StatesGroup):
     cost = State()
-    diagnosis = State()
     expenses = State()
     payment_method = State()
-    comment = State()
 
 
 class AddWorker(StatesGroup):

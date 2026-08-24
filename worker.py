@@ -226,7 +226,7 @@ async def complete_order_start(call: CallbackQuery, state: FSMContext):
         return
     await state.update_data(order_id=order_id)
     await state.set_state(CompleteOrder.cost)
-    await call.message.answer("📝 Отчёт по заявке\n\n1/5. Введите стоимость работы для клиента (₽):")
+    await call.message.answer("📝 Отчёт по заявке\n\n1/3. Введите стоимость работы для клиента (₽):")
     await call.answer()
 
 
@@ -238,15 +238,8 @@ async def complete_order_cost(message: Message, state: FSMContext):
         await message.answer("Введите число, например 1500")
         return
     await state.update_data(cost=cost)
-    await state.set_state(CompleteOrder.diagnosis)
-    await message.answer("2/5. Укажите точную причину поломки (что было с замком по факту):")
-
-
-@router.message(CompleteOrder.diagnosis)
-async def complete_order_diagnosis(message: Message, state: FSMContext):
-    await state.update_data(diagnosis=message.text)
     await state.set_state(CompleteOrder.expenses)
-    await message.answer("3/5. Введите расход (материалы, инструменты и т.п.), ₽:")
+    await message.answer("2/3. Введите расход материала (₽):")
 
 
 @router.message(CompleteOrder.expenses)
@@ -258,44 +251,32 @@ async def complete_order_expenses(message: Message, state: FSMContext):
         return
     await state.update_data(expenses=expenses)
     await state.set_state(CompleteOrder.payment_method)
-    await message.answer("4/5. Способ оплаты:", reply_markup=payment_method_kb())
+    await message.answer("3/3. Способ оплаты:", reply_markup=payment_method_kb())
 
 
 @router.callback_query(CompleteOrder.payment_method, F.data.startswith("pay_"))
 async def complete_order_payment(call: CallbackQuery, state: FSMContext):
     payment_method = "💵 Наличные" if call.data == "pay_cash" else "💳 Перевод (безнал)"
-    await state.update_data(payment_method=payment_method)
-    await state.set_state(CompleteOrder.comment)
-    await call.message.edit_text(f"Способ оплаты: {payment_method}")
-    await call.message.answer('5/5. Комментарий к заявке (или отправьте "-" чтобы пропустить):')
-    await call.answer()
-
-
-@router.message(CompleteOrder.comment)
-async def complete_order_comment(message: Message, state: FSMContext):
     data = await state.get_data()
     order_id = data["order_id"]
     cost = data["cost"]
-    diagnosis = data["diagnosis"]
     expenses = data["expenses"]
-    payment_method = data["payment_method"]
-    comment = "" if message.text.strip() == "-" else message.text
 
-    total = await db.complete_order(order_id, cost, diagnosis, expenses, payment_method, comment)
+    total = await db.complete_order(order_id, cost, "", expenses, payment_method, "")
     await state.clear()
 
     order = await db.get_order(order_id)
-    await message.answer(f"✅ Заявка №{order_id} закрыта. Итог: {total}₽")
+    await call.message.edit_text(f"Способ оплаты: {payment_method}")
+    await call.message.answer(f"✅ Заявка №{order_id} закрыта. Итог: {total}₽")
+    await call.answer()
 
-    await message.bot.send_message(
+    await call.bot.send_message(
         OWNER_ID,
         f"✅ Заявка №{order_id} завершена\n"
         f"📍 Адрес: {order['address']}\n"
         f"👷 Исполнитель: {order['assigned_name']}\n"
-        f"🔍 Причина поломки: {diagnosis}\n"
         f"💰 Стоимость: {cost}₽\n"
         f"💸 Расход: {expenses}₽\n"
         f"🏦 Оплата: {payment_method}\n"
-        f"📈 Итог: {total}₽\n"
-        f"💬 Комментарий: {comment or '—'}",
+        f"📈 Итог: {total}₽",
     )
