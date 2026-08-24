@@ -47,7 +47,11 @@ async def take_order(call: CallbackQuery):
     full_name = employees[call.from_user.id]
     ok = await db.take_order(order_id, call.from_user.id, full_name)
     if not ok:
-        await call.answer("Заявка уже взята другим сотрудником.", show_alert=True)
+        current = await db.get_order(order_id)
+        if current and current["status"] == "cancelled":
+            await call.answer("Заявка отменена администратором.", show_alert=True)
+        else:
+            await call.answer("Заявка уже взята другим сотрудником.", show_alert=True)
         return
 
     order = await db.get_order(order_id)
@@ -147,7 +151,7 @@ async def refuse_order_reason(message: Message, state: FSMContext):
 async def complete_order_start(call: CallbackQuery, state: FSMContext):
     order_id = int(call.data.split("_", 1)[1])
     order = await db.get_order(order_id)
-    if not order or order["assigned_to"] != call.from_user.id:
+    if not order or order["assigned_to"] != call.from_user.id or order["status"] != "in_progress":
         await call.answer("Это не ваша заявка.", show_alert=True)
         return
     await state.update_data(order_id=order_id)

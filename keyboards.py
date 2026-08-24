@@ -17,6 +17,14 @@ def complete_order_kb(order_id: int) -> InlineKeyboardMarkup:
     return kb.as_markup()
 
 
+def active_orders_kb(orders) -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    for o in orders:
+        kb.button(text=f"❌ Отменить №{o['id']}", callback_data=f"admincancel_{o['id']}")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
 def payment_method_kb() -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     kb.button(text="💵 Наличные", callback_data="pay_cash")

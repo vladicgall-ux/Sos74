@@ -130,6 +130,20 @@ async def refuse_order(order_id: int, user_id: int, reason: str) -> bool:
         return True
 
 
+async def admin_cancel_order(order_id: int) -> bool:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("SELECT status FROM orders WHERE id = ?", (order_id,))
+        row = await cursor.fetchone()
+        if not row or row[0] not in ("new", "in_progress"):
+            return False
+        await db.execute(
+            "UPDATE orders SET status='cancelled', completed_at=? WHERE id=?",
+            (datetime.now().isoformat(), order_id),
+        )
+        await db.commit()
+        return True
+
+
 async def complete_order(
     order_id: int,
     cost: float,
@@ -156,7 +170,7 @@ async def get_active_orders():
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute(
-            "SELECT * FROM orders WHERE status NOT IN ('done', 'refused') ORDER BY id DESC"
+            "SELECT * FROM orders WHERE status NOT IN ('done', 'refused', 'cancelled') ORDER BY id DESC"
         )
         return await cursor.fetchall()
 
