@@ -13,6 +13,25 @@ router = Router()
 router.message.filter(F.from_user.id != OWNER_ID)
 router.callback_query.filter(F.from_user.id != OWNER_ID)
 
+LESSONS = {
+    "🔑 Цилиндровые замки": (
+        "🔑 Урок: аварийное вскрытие цилиндровых замков\n\n"
+        "https://www.youtube.com/watch?v=hiBRi2DfjmA"
+    ),
+    "🔐 Сувальдные замки": (
+        "🔐 Урок: аварийное вскрытие сувальдных замков\n\n"
+        "https://www.youtube.com/watch?v=dY1YyaUtnlg"
+    ),
+    "🗄️ Сейфы": (
+        "🗄️ Урок: аварийное вскрытие сейфов\n\n"
+        "https://www.youtube.com/watch?v=05sxJh9E5Ew"
+    ),
+    "🚪 Гаражные замки": (
+        "🚪 Урок: аварийное вскрытие гаражных (навесных) замков\n\n"
+        "https://www.youtube.com/watch?v=o2PCPRtpjrk"
+    ),
+}
+
 
 @router.message(Command("start"))
 async def worker_start(message: Message):
@@ -26,7 +45,8 @@ async def worker_start(message: Message):
             "1️⃣ Когда поступает новая заявка — вам придёт адрес и описание проблемы с кнопкой «Взять в работу».\n"
             "2️⃣ Кто из сотрудников нажмёт первым — тот и берёт заявку себе, остальным придёт отметка, что заявка уже занята.\n"
             "3️⃣ После выполнения работы нажмите «Завершить и сдать отчёт» и заполните: стоимость, точную причину поломки, расход, способ оплаты и комментарий.\n"
-            "4️⃣ Команда /report или кнопка «📊 Мои отчёты» — посмотреть свои завершённые заявки за период.\n\n"
+            "4️⃣ Команда /report или кнопка «📊 Мои отчёты» — посмотреть свои завершённые заявки за период.\n"
+            "5️⃣ Кнопки с замками внизу — обучающие видео по аварийному вскрытию.\n\n"
             "Удачной работы! 🔧",
             reply_markup=worker_menu_kb(),
         )
@@ -40,14 +60,14 @@ async def worker_start(message: Message):
 
 
 @router.message(Command("report"))
+@router.message(F.text == "📊 Мои отчёты")
 async def worker_report_start(message: Message):
     await message.answer("Выберите период отчёта:", reply_markup=period_kb("wreport"))
 
 
-@router.callback_query(F.data == "wreport_menu")
-async def worker_report_menu(call: CallbackQuery):
-    await call.message.answer("Выберите период отчёта:", reply_markup=period_kb("wreport"))
-    await call.answer()
+@router.message(F.text.in_(LESSONS.keys()))
+async def worker_lesson(message: Message):
+    await message.answer(LESSONS[message.text])
 
 
 @router.callback_query(F.data.startswith("wreport_"))

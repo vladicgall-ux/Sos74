@@ -76,7 +76,18 @@ def del_worker_kb(employees) -> InlineKeyboardMarkup:
     return kb.as_markup()
 
 
-def worker_menu_kb() -> InlineKeyboardMarkup:
-    kb = InlineKeyboardBuilder()
-    kb.button(text="📊 Мои отчёты", callback_data="wreport_menu")
-    return kb.as_markup()
+WORKER_MENU_BUTTONS = [
+    "📊 Мои отчёты",
+    "🔑 Цилиндровые замки",
+    "🔐 Сувальдные замки",
+    "🗄️ Сейфы",
+    "🚪 Гаражные замки",
+]
+
+
+def worker_menu_kb() -> ReplyKeyboardMarkup:
+    kb = ReplyKeyboardBuilder()
+    for label in WORKER_MENU_BUTTONS:
+        kb.button(text=label)
+    kb.adjust(2)
+    return kb.as_markup(resize_keyboard=True)
