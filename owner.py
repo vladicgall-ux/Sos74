@@ -8,7 +8,7 @@ from aiogram.types import Message, CallbackQuery
 from config import OWNER_ID
 import db
 from states import NewOrder, AddWorker
-from keyboards import take_order_kb, report_period_kb
+from keyboards import take_order_kb, report_period_kb, active_orders_kb
 
 router = Router()
 router.message.filter(F.from_user.id == OWNER_ID)
@@ -81,7 +81,43 @@ async def list_orders(message: Message):
     for o in orders:
         status = "🆕 новая" if o["status"] == "new" else f"🔧 в работе ({o['assigned_name']})"
         lines.append(f"№{o['id']} — {o['address']} — {status}")
-    await message.answer("\n".join(lines))
+    await message.answer("\n".join(lines), reply_markup=active_orders_kb(orders))
+
+
+@router.callback_query(F.data.startswith("admincancel_"))
+async def admin_cancel_order(call: CallbackQuery):
+    order_id = int(call.data.split("_", 1)[1])
+    order = await db.get_order(order_id)
+    if not order or order["status"] not in ("new", "in_progress"):
+        await call.answer("Заявка уже не активна.", show_alert=True)
+        return
+
+    ok = await db.admin_cancel_order(order_id)
+    if not ok:
+        await call.answer("Не удалось отменить заявку.", show_alert=True)
+        return
+
+    await call.answer("Заявка отменена")
+    await call.message.answer(f"❌ Заявка №{order_id} ({order['address']}) отменена вами.")
+
+    if order["status"] == "in_progress" and order["assigned_to"]:
+        try:
+            await call.bot.send_message(
+                order["assigned_to"],
+                f"❌ Заявка №{order_id} ({order['address']}) отменена администратором.",
+            )
+        except Exception:
+            pass
+    else:
+        employees = await db.get_employees()
+        for user_id, _ in employees:
+            try:
+                await call.bot.send_message(
+                    user_id,
+                    f"❌ Заявка №{order_id} ({order['address']}) отменена администратором.",
+                )
+            except Exception:
+                pass
 
 
 @router.message(Command("report"))

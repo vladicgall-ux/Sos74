@@ -11,6 +11,17 @@ def take_order_kb(order_id: int) -> InlineKeyboardMarkup:
 def complete_order_kb(order_id: int) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     kb.button(text="✅ Завершить и сдать отчёт", callback_data=f"complete_{order_id}")
+    kb.button(text="❌ Отменить заявку", callback_data=f"cancel_{order_id}")
+    kb.button(text="🚫 Отказ клиента", callback_data=f"refuse_{order_id}")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def active_orders_kb(orders) -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    for o in orders:
+        kb.button(text=f"❌ Отменить №{o['id']}", callback_data=f"admincancel_{o['id']}")
+    kb.adjust(1)
     return kb.as_markup()
 
 
