@@ -33,10 +33,25 @@ def payment_method_kb() -> InlineKeyboardMarkup:
     return kb.as_markup()
 
 
-def report_period_kb() -> InlineKeyboardMarkup:
+def period_kb(prefix: str) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
-    kb.button(text="Сегодня", callback_data="report_today")
-    kb.button(text="Эта неделя", callback_data="report_week")
-    kb.button(text="Этот месяц", callback_data="report_month")
+    kb.button(text="Сегодня", callback_data=f"{prefix}_today")
+    kb.button(text="Эта неделя", callback_data=f"{prefix}_week")
+    kb.button(text="Этот месяц", callback_data=f"{prefix}_month")
     kb.adjust(1)
+    return kb.as_markup()
+
+
+def report_employees_kb(employees) -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    kb.button(text="👥 Все сотрудники", callback_data="repemp_all")
+    for user_id, name in employees:
+        kb.button(text=name, callback_data=f"repemp_{user_id}")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def worker_menu_kb() -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    kb.button(text="📊 Мои отчёты", callback_data="wreport_menu")
     return kb.as_markup()

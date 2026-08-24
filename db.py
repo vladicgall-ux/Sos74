@@ -175,11 +175,19 @@ async def get_active_orders():
         return await cursor.fetchall()
 
 
-async def get_orders_between(date_from: str, date_to: str):
+async def get_orders_between(date_from: str, date_to: str, employee_id: int = None):
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        cursor = await db.execute(
-            "SELECT * FROM orders WHERE status='done' AND completed_at BETWEEN ? AND ? ORDER BY completed_at",
-            (date_from, date_to),
-        )
+        if employee_id is None:
+            cursor = await db.execute(
+                "SELECT * FROM orders WHERE status='done' AND completed_at BETWEEN ? AND ? "
+                "ORDER BY completed_at",
+                (date_from, date_to),
+            )
+        else:
+            cursor = await db.execute(
+                "SELECT * FROM orders WHERE status='done' AND completed_at BETWEEN ? AND ? "
+                "AND assigned_to=? ORDER BY completed_at",
+                (date_from, date_to, employee_id),
+            )
         return await cursor.fetchall()

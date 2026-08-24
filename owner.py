@@ -1,5 +1,3 @@
-from datetime import datetime, timedelta
-
 from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -8,7 +6,8 @@ from aiogram.types import Message, CallbackQuery
 from config import OWNER_ID
 import db
 from states import NewOrder, AddWorker
-from keyboards import take_order_kb, report_period_kb, active_orders_kb
+from keyboards import take_order_kb, period_kb, report_employees_kb, active_orders_kb
+from utils import period_range, format_order_date
 
 router = Router()
 router.message.filter(F.from_user.id == OWNER_ID)
@@ -122,29 +121,35 @@ async def admin_cancel_order(call: CallbackQuery):
 
 @router.message(Command("report"))
 async def report_start(message: Message):
-    await message.answer("Выберите период отчёта:", reply_markup=report_period_kb())
+    employees = await db.get_employees()
+    await message.answer(
+        "По какому сотруднику показать отчёт?", reply_markup=report_employees_kb(employees)
+    )
 
 
-@router.callback_query(F.data.startswith("report_"))
+@router.callback_query(F.data.startswith("repemp_"))
+async def report_choose_period(call: CallbackQuery):
+    employee = call.data.split("_", 1)[1]  # "all" or a user_id
+    await call.message.edit_text(
+        "Выберите период отчёта:", reply_markup=period_kb(f"repperiod_{employee}")
+    )
+    await call.answer()
+
+
+@router.callback_query(F.data.startswith("repperiod_"))
 async def report_period(call: CallbackQuery):
-    period = call.data.split("_", 1)[1]
-    now = datetime.now()
-    if period == "today":
-        date_from = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
-        title = "за сегодня"
-    elif period == "week":
-        date_from = (now - timedelta(days=now.weekday())).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        ).isoformat()
-        title = "за эту неделю"
-    else:
-        date_from = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
-        title = "за этот месяц"
-    date_to = now.isoformat()
+    _, employee, period = call.data.split("_", 2)
+    employee_id = None if employee == "all" else int(employee)
+    date_from, date_to, title = period_range(period)
 
-    orders = await db.get_orders_between(date_from, date_to)
+    if employee_id is None:
+        who = "все сотрудники"
+    else:
+        who = dict(await db.get_employees()).get(employee_id, f"ID {employee_id}")
+
+    orders = await db.get_orders_between(date_from, date_to, employee_id)
     if not orders:
-        await call.message.edit_text(f"Нет завершённых заявок {title}.")
+        await call.message.edit_text(f"Нет завершённых заявок {title} ({who}).")
         await call.answer()
         return
 
@@ -152,10 +157,11 @@ async def report_period(call: CallbackQuery):
     total_expenses = sum(o["expenses"] or 0 for o in orders)
     total_profit = sum(o["total"] or 0 for o in orders)
 
-    lines = [f"📊 Отчёт {title}\n"]
+    lines = [f"📊 Отчёт {title} — {who}\n"]
     for o in orders:
         lines.append(
-            f"№{o['id']} {o['address']} — исполнитель: {o['assigned_name']}\n"
+            f"№{o['id']} {o['address']} — исполнитель: {o['assigned_name']} "
+            f"({format_order_date(o['completed_at'])})\n"
             f"  Причина: {o['diagnosis'] or '—'}\n"
             f"  Стоимость: {o['cost']}₽, расход: {o['expenses']}₽, итог: {o['total']}₽, "
             f"оплата: {o['payment_method'] or '—'}"

@@ -6,7 +6,8 @@ from aiogram.types import Message, CallbackQuery
 from config import OWNER_ID
 import db
 from states import CompleteOrder, RefuseOrder
-from keyboards import complete_order_kb, payment_method_kb, take_order_kb
+from keyboards import complete_order_kb, payment_method_kb, take_order_kb, period_kb, worker_menu_kb
+from utils import period_range, format_order_date
 
 router = Router()
 router.message.filter(F.from_user.id != OWNER_ID)
@@ -24,8 +25,10 @@ async def worker_start(message: Message):
             "Как это работает:\n"
             "1️⃣ Когда поступает новая заявка — вам придёт адрес и описание проблемы с кнопкой «Взять в работу».\n"
             "2️⃣ Кто из сотрудников нажмёт первым — тот и берёт заявку себе, остальным придёт отметка, что заявка уже занята.\n"
-            "3️⃣ После выполнения работы нажмите «Завершить и сдать отчёт» и заполните: стоимость, точную причину поломки, расход, способ оплаты и комментарий.\n\n"
-            "Удачной работы! 🔧"
+            "3️⃣ После выполнения работы нажмите «Завершить и сдать отчёт» и заполните: стоимость, точную причину поломки, расход, способ оплаты и комментарий.\n"
+            "4️⃣ Команда /report или кнопка «📊 Мои отчёты» — посмотреть свои завершённые заявки за период.\n\n"
+            "Удачной работы! 🔧",
+            reply_markup=worker_menu_kb(),
         )
     else:
         await message.answer(
@@ -34,6 +37,53 @@ async def worker_start(message: Message):
             "Отправьте этот ID руководителю, чтобы он добавил вас в список сотрудников. "
             "После этого вы начнёте получать заявки прямо сюда."
         )
+
+
+@router.message(Command("report"))
+async def worker_report_start(message: Message):
+    await message.answer("Выберите период отчёта:", reply_markup=period_kb("wreport"))
+
+
+@router.callback_query(F.data == "wreport_menu")
+async def worker_report_menu(call: CallbackQuery):
+    await call.message.answer("Выберите период отчёта:", reply_markup=period_kb("wreport"))
+    await call.answer()
+
+
+@router.callback_query(F.data.startswith("wreport_"))
+async def worker_report_period(call: CallbackQuery):
+    period = call.data.split("_", 1)[1]
+    date_from, date_to, title = period_range(period)
+
+    orders = await db.get_orders_between(date_from, date_to, call.from_user.id)
+    if not orders:
+        await call.message.edit_text(f"У вас нет завершённых заявок {title}.")
+        await call.answer()
+        return
+
+    total_cost = sum(o["cost"] or 0 for o in orders)
+    total_expenses = sum(o["expenses"] or 0 for o in orders)
+    total_profit = sum(o["total"] or 0 for o in orders)
+
+    lines = [f"📊 Ваш отчёт {title}\n"]
+    for o in orders:
+        lines.append(
+            f"№{o['id']} {o['address']} ({format_order_date(o['completed_at'])})\n"
+            f"  Причина: {o['diagnosis'] or '—'}\n"
+            f"  Стоимость: {o['cost']}₽, расход: {o['expenses']}₽, итог: {o['total']}₽, "
+            f"оплата: {o['payment_method'] or '—'}"
+        )
+    lines.append(f"\nВсего заявок: {len(orders)}")
+    lines.append(f"Сумма по стоимости: {total_cost}₽")
+    lines.append(f"Сумма расходов: {total_expenses}₽")
+    lines.append(f"Чистая прибыль: {total_profit}₽")
+
+    text = "\n".join(lines)
+    if len(text) > 4000:
+        text = text[:4000] + "\n\n...(отчёт обрезан, слишком много заявок)"
+
+    await call.message.edit_text(text)
+    await call.answer()
 
 
 @router.callback_query(F.data.startswith("take_"))
