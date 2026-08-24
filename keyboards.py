@@ -1,5 +1,22 @@
-from aiogram.utils.keyboard import InlineKeyboardBuilder
-from aiogram.types import InlineKeyboardMarkup
+from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
+from aiogram.types import InlineKeyboardMarkup, ReplyKeyboardMarkup
+
+OWNER_MENU_BUTTONS = [
+    "🆕 Новая заявка",
+    "📋 Активные заявки",
+    "📊 Отчёт",
+    "👷 Сотрудники",
+    "➕ Добавить сотрудника",
+    "➖ Удалить сотрудника",
+]
+
+
+def owner_menu_kb() -> ReplyKeyboardMarkup:
+    kb = ReplyKeyboardBuilder()
+    for label in OWNER_MENU_BUTTONS:
+        kb.button(text=label)
+    kb.adjust(2)
+    return kb.as_markup(resize_keyboard=True)
 
 
 def take_order_kb(order_id: int) -> InlineKeyboardMarkup:
@@ -47,6 +64,14 @@ def report_employees_kb(employees) -> InlineKeyboardMarkup:
     kb.button(text="👥 Все сотрудники", callback_data="repemp_all")
     for user_id, name in employees:
         kb.button(text=name, callback_data=f"repemp_{user_id}")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def del_worker_kb(employees) -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    for user_id, name in employees:
+        kb.button(text=f"❌ {name}", callback_data=f"delworker_{user_id}")
     kb.adjust(1)
     return kb.as_markup()
 

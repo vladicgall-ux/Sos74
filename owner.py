@@ -6,7 +6,14 @@ from aiogram.types import Message, CallbackQuery
 from config import OWNER_ID
 import db
 from states import NewOrder, AddWorker
-from keyboards import take_order_kb, period_kb, report_employees_kb, active_orders_kb
+from keyboards import (
+    take_order_kb,
+    period_kb,
+    report_employees_kb,
+    active_orders_kb,
+    owner_menu_kb,
+    del_worker_kb,
+)
 from utils import period_range, format_order_date
 
 router = Router()
@@ -18,16 +25,13 @@ router.callback_query.filter(F.from_user.id == OWNER_ID)
 async def owner_start(message: Message):
     await message.answer(
         "Привет! Это бот заявок для вашей мастерской.\n\n"
-        "/new — создать новую заявку\n"
-        "/orders — активные заявки\n"
-        "/report — отчёт по выполненным работам\n"
-        "/workers — список сотрудников\n"
-        "/add_worker — добавить сотрудника\n"
-        "/del_worker &lt;ID&gt; — удалить сотрудника"
+        "Пользуйтесь кнопками меню внизу экрана 👇",
+        reply_markup=owner_menu_kb(),
     )
 
 
 @router.message(Command("new"))
+@router.message(F.text == "🆕 Новая заявка")
 async def new_order_start(message: Message, state: FSMContext):
     await state.set_state(NewOrder.address)
     await message.answer("Введите адрес объекта:")
@@ -71,6 +75,7 @@ async def new_order_problem(message: Message, state: FSMContext):
 
 
 @router.message(Command("orders"))
+@router.message(F.text == "📋 Активные заявки")
 async def list_orders(message: Message):
     orders = await db.get_active_orders()
     if not orders:
@@ -120,6 +125,7 @@ async def admin_cancel_order(call: CallbackQuery):
 
 
 @router.message(Command("report"))
+@router.message(F.text == "📊 Отчёт")
 async def report_start(message: Message):
     employees = await db.get_employees()
     await message.answer(
@@ -181,6 +187,7 @@ async def report_period(call: CallbackQuery):
 
 
 @router.message(Command("workers"))
+@router.message(F.text == "👷 Сотрудники")
 async def list_workers(message: Message):
     employees = await db.get_employees()
     if not employees:
@@ -191,6 +198,7 @@ async def list_workers(message: Message):
 
 
 @router.message(Command("add_worker"))
+@router.message(F.text == "➕ Добавить сотрудника")
 async def add_worker_start(message: Message, state: FSMContext):
     await state.set_state(AddWorker.waiting_id)
     await message.answer(
@@ -225,3 +233,20 @@ async def del_worker(message: Message):
         return
     await db.remove_employee(int(parts[1]))
     await message.answer("Сотрудник удалён.")
+
+
+@router.message(F.text == "➖ Удалить сотрудника")
+async def del_worker_menu(message: Message):
+    employees = await db.get_employees()
+    if not employees:
+        await message.answer("Сотрудников пока нет.")
+        return
+    await message.answer("Кого удалить?", reply_markup=del_worker_kb(employees))
+
+
+@router.callback_query(F.data.startswith("delworker_"))
+async def del_worker_confirm(call: CallbackQuery):
+    user_id = int(call.data.split("_", 1)[1])
+    await db.remove_employee(user_id)
+    await call.answer("Сотрудник удалён")
+    await call.message.edit_text(f"🗑️ Сотрудник (ID {user_id}) удалён.")
