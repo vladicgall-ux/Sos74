@@ -12,6 +12,7 @@ def complete_order_kb(order_id: int) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     kb.button(text="✅ Завершить и сдать отчёт", callback_data=f"complete_{order_id}")
     kb.button(text="❌ Отменить заявку", callback_data=f"cancel_{order_id}")
+    kb.button(text="🚫 Отказ клиента", callback_data=f"refuse_{order_id}")
     kb.adjust(1)
     return kb.as_markup()
 

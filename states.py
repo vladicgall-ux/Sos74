@@ -17,3 +17,7 @@ class CompleteOrder(StatesGroup):
 class AddWorker(StatesGroup):
     waiting_id = State()
     waiting_name = State()
+
+
+class RefuseOrder(StatesGroup):
+    reason = State()

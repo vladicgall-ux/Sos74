@@ -5,7 +5,7 @@ from aiogram.types import Message, CallbackQuery
 
 from config import OWNER_ID
 import db
-from states import CompleteOrder
+from states import CompleteOrder, RefuseOrder
 from keyboards import complete_order_kb, payment_method_kb, take_order_kb
 
 router = Router()
@@ -102,6 +102,45 @@ async def cancel_order(call: CallbackQuery):
             await call.bot.send_message(user_id, text, reply_markup=take_order_kb(order_id))
         except Exception:
             pass
+
+
+@router.callback_query(F.data.startswith("refuse_"))
+async def refuse_order_start(call: CallbackQuery, state: FSMContext):
+    order_id = int(call.data.split("_", 1)[1])
+    order = await db.get_order(order_id)
+    if not order or order["assigned_to"] != call.from_user.id:
+        await call.answer("Это не ваша заявка.", show_alert=True)
+        return
+    await state.update_data(order_id=order_id)
+    await state.set_state(RefuseOrder.reason)
+    await call.message.answer(
+        'Укажите причину отказа клиента (или отправьте "-" чтобы пропустить):'
+    )
+    await call.answer()
+
+
+@router.message(RefuseOrder.reason)
+async def refuse_order_reason(message: Message, state: FSMContext):
+    data = await state.get_data()
+    order_id = data["order_id"]
+    reason = "" if message.text.strip() == "-" else message.text
+    await state.clear()
+
+    ok = await db.refuse_order(order_id, message.from_user.id, reason)
+    if not ok:
+        await message.answer("Не удалось оформить отказ — заявка уже недоступна.")
+        return
+
+    order = await db.get_order(order_id)
+    await message.answer(f"🚫 Заявка №{order_id} закрыта как отказ клиента.")
+
+    await message.bot.send_message(
+        OWNER_ID,
+        f"🚫 Клиент отказался — заявка №{order_id}\n"
+        f"📍 Адрес: {order['address']}\n"
+        f"👷 Исполнитель: {order['assigned_name']}\n"
+        f"💬 Причина: {reason or '—'}",
+    )
 
 
 @router.callback_query(F.data.startswith("complete_"))
