@@ -14,7 +14,7 @@ from keyboards import (
     owner_menu_kb,
     del_worker_kb,
 )
-from utils import period_range, format_order_date
+from utils import period_range, format_order_date, render_report
 
 router = Router()
 router.message.filter(F.from_user.id == OWNER_ID)
@@ -163,26 +163,21 @@ async def report_period(call: CallbackQuery):
     total_expenses = sum(o["expenses"] or 0 for o in orders)
     total_profit = sum(o["total"] or 0 for o in orders)
 
-    lines = [f"📊 Отчёт {title} — {who}\n"]
-    for o in orders:
-        lines.append(
-            f"№{o['id']} {o['address']} — исполнитель: {o['assigned_name']} "
-            f"({format_order_date(o['completed_at'])})\n"
-            f"  Причина: {o['diagnosis'] or '—'}\n"
-            f"  Стоимость: {o['cost']}₽, расход: {o['expenses']}₽, итог: {o['total']}₽, "
-            f"оплата: {o['payment_method'] or '—'}"
-        )
-    lines.append(f"\nВсего заявок: {len(orders)}")
-    lines.append(f"Сумма по стоимости: {total_cost}₽")
-    lines.append(f"Сумма расходов: {total_expenses}₽")
-    lines.append(f"Чистая прибыль: {total_profit}₽")
+    header = f"📊 <b>Отчёт {title}</b>\n👤 {who}"
+    blocks = [
+        f"<b>№{o['id']}</b> {o['address']}\n"
+        f"👷 {o['assigned_name']} · 🕒 {format_order_date(o['completed_at'])}\n"
+        f"💰 {o['cost']}₽ − 💸 {o['expenses']}₽ = <b>{o['total']}₽</b> "
+        f"({o['payment_method'] or '—'})"
+        for o in orders
+    ]
+    footer = (
+        f"<b>Итого:</b> {len(orders)} заявок\n"
+        f"Стоимость: {total_cost}₽ · Расход: {total_expenses}₽\n"
+        f"<b>Чистая прибыль: {total_profit}₽</b>"
+    )
 
-    text = "\n".join(lines)
-    # Telegram limits messages to 4096 chars
-    if len(text) > 4000:
-        text = text[:4000] + "\n\n...(отчёт обрезан, слишком много заявок)"
-
-    await call.message.edit_text(text)
+    await call.message.edit_text(render_report(header, blocks, footer))
     await call.answer()
 
 

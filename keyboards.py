@@ -53,9 +53,13 @@ def payment_method_kb() -> InlineKeyboardMarkup:
 def period_kb(prefix: str) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     kb.button(text="Сегодня", callback_data=f"{prefix}_today")
+    kb.button(text="Вчера", callback_data=f"{prefix}_yesterday")
     kb.button(text="Эта неделя", callback_data=f"{prefix}_week")
+    kb.button(text="Прошлая неделя", callback_data=f"{prefix}_last_week")
     kb.button(text="Этот месяц", callback_data=f"{prefix}_month")
-    kb.adjust(1)
+    kb.button(text="Прошлый месяц", callback_data=f"{prefix}_last_month")
+    kb.button(text="Всё время", callback_data=f"{prefix}_all")
+    kb.adjust(2)
     return kb.as_markup()
 
 
