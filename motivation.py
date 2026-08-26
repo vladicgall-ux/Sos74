@@ -10,7 +10,7 @@ from motivation_data import MOTIVATIONS
 
 ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets", "motivation")
 
-INTERVAL_SECONDS = 3 * 60 * 60  # every 3 hours
+INTERVAL_SECONDS = 24 * 60 * 60  # once a day
 
 
 async def _send_one(bot, item):
