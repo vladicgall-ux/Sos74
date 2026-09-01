@@ -8,7 +8,6 @@ from aiogram.fsm.storage.memory import MemoryStorage
 
 from config import BOT_TOKEN
 from db import init_db
-from motivation import motivation_scheduler
 import owner
 import worker
 
@@ -26,7 +25,6 @@ async def main():
     dp.include_router(worker.router)
 
     await bot.delete_webhook(drop_pending_updates=True)
-    asyncio.create_task(motivation_scheduler(bot))
     await dp.start_polling(bot)
 
 
